@@ -6,7 +6,8 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 load_dotenv()
 
-APP_ENV = os.getenv("APP_ENV", "development").lower()
+IS_VERCEL = os.getenv("VERCEL") == "1"
+APP_ENV = os.getenv("APP_ENV", "production" if IS_VERCEL else "development").lower()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL and APP_ENV == "production":
     raise RuntimeError("DATABASE_URL must be configured in production")

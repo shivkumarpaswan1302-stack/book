@@ -1,0 +1,27 @@
+import os
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+load_dotenv()
+
+APP_ENV = os.getenv("APP_ENV", "development").lower()
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL and APP_ENV == "production":
+    raise RuntimeError("DATABASE_URL must be configured in production")
+DATABASE_URL = DATABASE_URL or "postgresql+psycopg://postgres:postgres@localhost:5432/kahaniya"
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

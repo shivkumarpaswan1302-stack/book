@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Uuid
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -57,9 +57,10 @@ class Book(Base):
     __tablename__ = "books"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    title: Mapped[str] = mapped_column(String(300), nullable=False)
-    author: Mapped[str] = mapped_column(String(300), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    author: Mapped[str] = mapped_column(Text, nullable=False)
     isbn: Mapped[str | None] = mapped_column(String(20))
+    cover_url: Mapped[str | None] = mapped_column(String(500))
     kind: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     genres: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     themes: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

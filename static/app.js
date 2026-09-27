@@ -22,13 +22,22 @@ let data = loadData();
 function persist() { localStorage.setItem(storageKey, JSON.stringify(data)); updateCounts(); }
 function updateCounts() { document.querySelector("#saved-count").textContent = data.saved.length; }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
+function bookCoverUrl(book) { return book.cover_url || (book.isbn ? `https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg` : ""); }
 
 function coverMarkup(book, badge = "") {
   const saved = data.saved.includes(book.id);
-  return `<div class="book-cover-wrap" style="--cover:${book.color}">${badge ? `<span class="cover-badge">${badge}</span>` : ""}<img class="book-cover" loading="lazy" src="https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg" alt="${escapeHtml(book.title)} cover" onerror="this.classList.add('failed')"><span class="cover-placeholder">${escapeHtml(book.title)}</span><button class="save-button ${saved ? "saved" : ""}" data-save="${book.id}" type="button" aria-label="${saved ? "Remove from" : "Add to"} reading list">${saved ? "♥" : "♡"}</button></div>`;
+  const imageUrl = bookCoverUrl(book);
+  return `<div class="book-cover-wrap" style="--cover:${book.color}">${badge ? `<span class="cover-badge">${badge}</span>` : ""}${imageUrl ? `<img class="book-cover" loading="lazy" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(book.title)} cover" onerror="this.classList.add('failed')">` : ""}<span class="cover-placeholder">${escapeHtml(book.title)}</span><button class="save-button ${saved ? "saved" : ""}" data-save="${book.id}" type="button" aria-label="${saved ? "Remove from" : "Add to"} reading list">${saved ? "♥" : "♡"}</button></div>`;
 }
 function cardMarkup(book, reason = "") {
   return `<article class="book-card" data-book="${book.id}" tabindex="0" role="button" aria-label="View ${escapeHtml(book.title)} by ${escapeHtml(book.author)}">${coverMarkup(book, book.badge)}<div class="book-meta"><p class="book-title">${escapeHtml(book.title)}</p><p class="book-author">${escapeHtml(book.author)}</p>${reason ? `<p class="book-reason">${escapeHtml(reason)}</p>` : `<div class="book-foot"><span>${escapeHtml(book.genres[0])}</span><span class="book-rating">★ ${book.rating}</span></div>`}</div></article>`;
+}
+function featuredBooks() {
+  const preferredIds = ["small-things", "legends-lattes", "four-thousand-weeks", "ocean-at-the-end", "atomic-habits", "braiding-sweetgrass"];
+  const preferred = preferredIds.map((id) => state.books.find((book) => book.id === id)).filter(Boolean);
+  const selectedIds = new Set(preferred.map((book) => book.id));
+  const highestRated = [...state.books].sort((a, b) => b.rating - a.rating).filter((book) => !selectedIds.has(book.id));
+  return [...preferred, ...highestRated].slice(0, 6);
 }
 function resultMarkup(book) {
   return `<article class="result-card" data-book="${book.id}" tabindex="0" role="button" aria-label="View ${escapeHtml(book.title)} details">${coverMarkup(book)}<div class="book-meta"><p class="book-title">${escapeHtml(book.title)}</p><p class="book-author">${escapeHtml(book.author)}</p><p class="book-reason">${escapeHtml(book.reasons?.[0] || "A thoughtful match for right now.")}</p></div></article>`;
@@ -38,10 +47,10 @@ function showToast(message) {
   state.toastTimer = setTimeout(() => toast.classList.remove("visible"), 2100);
 }
 function renderBooks() {
-  const byId = Object.fromEntries(state.books.map((book) => [book.id, book]));
-  document.querySelector("#mood-row").innerHTML = ["small-things", "legends-lattes", "four-thousand-weeks", "ocean-at-the-end", "atomic-habits", "braiding-sweetgrass"].map((id) => byId[id]).filter(Boolean).map((book) => cardMarkup(book)).join("");
+  document.querySelector("#mood-row").innerHTML = featuredBooks().map((book) => cardMarkup(book)).join("");
   document.querySelector("#popular-row").innerHTML = [...state.books].sort((a, b) => b.rating - a.rating).slice(0, 7).map((book) => cardMarkup(book)).join("");
   document.querySelector("#short-row").innerHTML = [...state.books].sort((a, b) => a.minutes - b.minutes).slice(0, 7).map((book) => cardMarkup(book, `${book.minutes} min · ${book.tone}`)).join("");
+  document.querySelector("#catalog-count").textContent = state.books.length;
   renderContinue();
 }
 function renderContinue() {
@@ -78,6 +87,9 @@ function openDetails(bookId) {
   data.history = [book.id, ...data.history.filter((id) => id !== book.id)].slice(0, 30); persist();
   const progress = data.reading[book.id] || 0; const feedback = data.feedback[book.id];
   document.querySelector("#detail-content").innerHTML = `<div class="detail-layout" style="--cover:${book.color}"><div class="detail-cover"><img src="https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg" alt="${escapeHtml(book.title)} cover" onerror="this.style.display='none'"></div><div class="detail-copy"><form method="dialog"><button class="icon-button modal-close" aria-label="Close book details">×</button></form><p class="eyebrow">${escapeHtml(book.badge.toUpperCase())}</p><h2>${escapeHtml(book.title)}</h2><p class="detail-byline">${escapeHtml(book.author)} · ${book.year} · ★ ${book.rating}</p><p>${escapeHtml(book.description)}</p><p>${escapeHtml(book.tone)}. A ${escapeHtml(book.pace.toLowerCase())} ${book.minutes}-minute read.</p><div class="detail-tags">${[...book.genres, ...book.themes.slice(0, 2)].map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div><div class="detail-read"><span>${book.minutes} min read</span><span>${book.kind === "nonfiction" ? "Non-fiction" : "Fiction"} · ${book.complexity <= 1 ? "Easy" : book.complexity === 2 ? "Balanced" : "Layered"}</span></div><div class="detail-actions"><button class="button button-lime" data-detail-reading="${book.id}" type="button">${progress ? "Update progress" : "Start reading"} <span>↗</span></button><button class="button button-outline" data-detail-save="${book.id}" type="button">${data.saved.includes(book.id) ? "♥ Saved" : "♡ Save for later"}</button></div><div class="detail-actions feedback-actions"><button class="button button-outline" data-feedback="like" data-id="${book.id}" type="button">${feedback === "like" ? "♥ Liked" : "♡ Like this"}</button><button class="button button-outline" data-feedback="dislike" data-id="${book.id}" type="button">${feedback === "dislike" ? "Not for me ✓" : "Not for me"}</button></div><div class="progress-control"><label for="progress-range"><span>Reading progress</span><span id="progress-value">${progress}%</span></label><input id="progress-range" type="range" min="0" max="100" step="5" value="${progress}" data-progress="${book.id}" aria-label="Reading progress"></div></div></div>`;
+  const detailImage = document.querySelector("#detail-content .detail-cover img");
+  const imageUrl = bookCoverUrl(book);
+  if (imageUrl) detailImage.src = imageUrl; else detailImage.remove();
   const detailModal = document.querySelector("#detail-modal");
   if (!detailModal.open) detailModal.showModal();
 }
@@ -184,7 +196,7 @@ document.querySelector("#search-input").addEventListener("input", (event) => {
   if (!query) {
     document.querySelector("#discover .section-heading h2").textContent = "For your kind of day";
     document.querySelector("#discover .section-subtitle").textContent = "A few thoughtful picks, ready when you are.";
-    document.querySelector("#mood-row").innerHTML = ["small-things", "legends-lattes", "four-thousand-weeks", "ocean-at-the-end", "atomic-habits", "braiding-sweetgrass"].map((id) => state.books.find((book) => book.id === id)).filter(Boolean).map((book) => cardMarkup(book)).join("");
+    document.querySelector("#mood-row").innerHTML = featuredBooks().map((book) => cardMarkup(book)).join("");
     document.querySelector("#discover").scrollIntoView({ behavior: "smooth" });
     return;
   }

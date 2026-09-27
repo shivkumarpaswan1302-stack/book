@@ -13,7 +13,7 @@ FALLBACK_BOOKS: list[dict[str, Any]] = [
 ]
 
 _BOOK_COLUMNS = [
-    "id", "title", "author", "isbn", "kind", "genres", "themes", "moods",
+    "id", "title", "author", "isbn", "cover_url", "kind", "genres", "themes", "moods",
     "intents", "intensity", "complexity", "minutes", "pace", "description",
     "tone", "rating", "year", "badge", "color",
 ]
